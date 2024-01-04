@@ -1,6 +1,6 @@
 # discord auto memer
- automatically finds relevant memes and posts them \n
-Goals\n
+ automatically finds relevant memes and posts them     
+Goals    
 1. identify memable messages and create search term
     1. remove any words from word list leaving only names(keep the words around the name for context)
     2. identify any company names/products and add them back if removed
