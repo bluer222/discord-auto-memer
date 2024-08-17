@@ -1,7 +1,9 @@
 //ai is reccomended because without it this is bad, only use one of them
 const useopenAi = false; //put key in OPENAI_API_KEY
 const useedenAi = true; //put key in EDEN_AI
-//import discord api put key in DISCORD_TOKEN
+//put discord key in DISCORD_TOKEN
+//import google search api put key in googleapi
+
 const { Client, Events, GatewayIntentBits } = require("discord.js");
 //import file stuff to load dictionary
 var sdk;
@@ -11,14 +13,14 @@ var aiStartPrompt;
 var dictionary;
 var companies;
 const fs = require("fs");
-if(useedenAi){
-//import eden.ai api
- sdk = require('api')('@eden-ai/v2.0#1e32zlqwkiuup');
+if (useedenAi) {
+  //import eden.ai api
+  sdk = require("api")("@eden-ai/v2.0#1e32zlqwkiuup");
 }
-if(useopenAi){
-//import openai api
- openai = require("openai");
- chatgpt = new openai();
+if (useopenAi) {
+  //import openai api
+  openai = require("openai");
+  chatgpt = new openai();
 }
 //discord permissions or somthing
 const client = new Client({
@@ -33,29 +35,36 @@ const client = new Client({
 //if there is no ai then load dictionaries
 if (!useopenAi && !useedenAi) {
   console.log("getting dictionary");
-   dictionary = fs.readFileSync("./words.txt", "utf8").split("\n");
-   companies = fs.readFileSync("./companies.txt", "utf8").split("\n");
+  dictionary = fs.readFileSync("./words.txt", "utf8").split("\n");
+  companies = fs.readFileSync("./companies.txt", "utf8").split("\n");
   console.log(dictionary);
-}else{
-//if there is ai load start prompt
- aiStartPrompt = "I want you to do a simple task for me. You will be a meme search term bot creating search terms for memes on the internet. Simply take any input provided, find the key noun and verb, figure out what the input feels about that keyword (ONLY good or bad). If it is too simple, neutral, and not memeable, such as 'my name is jerry', respond with 'non memable'. If it is memable, respond with ONLY the keyword followed by the feeling meme, for example 'windows is bad meme'. Do NOT include anything else like dashes, quotes, bullet points, etc, you can only have words and spaces.";
+} else {
+  //if there is ai load start prompt
+  aiStartPrompt =
+    "You are a meme search term bot creating search terms for memes on the internet. Take any input provided, find the key noun and verb, figure out what the input feels about that keyword (ONLY good or bad). If it not memeable, such as 'my name is jerry' or 'test', respond with 'non memeable'. If it is memeable, respond with ONLY the keywords followed by the feeling meme, for example 'windows is bad meme'. Do NOT include dashes, quotes, bullet points, etc.";
 }
 //function to convert messages to search terms using ai or algorithem
 async function convertToSearchTerms(message) {
   if (useedenAi) {
-      await sdk.auth('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiODYwMjc2OGMtY2M3Yy00NzViLTgwYTQtNDRmOWUyM2VjNTQyIiwidHlwZSI6ImFwaV90b2tlbiJ9.qf2bDwM0v_pBNUAcz4rNdPTH6mxnp48dszQfa5ZhW5g');
-      let data = await sdk.text_chat_create({
+    await sdk.auth(process.env.EDEN_AI);
+    let data = await sdk
+      .text_chat_create({
         response_as_dict: true,
         attributes_as_list: false,
         show_original_response: false,
         temperature: 0,
         max_tokens: 500,
-        providers: 'google',
+        providers: "perplexityai/llama-3.1-8b-instruct",
         chatbot_global_action: aiStartPrompt,
-        text: "remember, you are a search term bot, only respond with search terms seperated by spaces, if it is not memable then respond with \'non memable\', here is the message: '" + message.content + "'",
-      }).then((data) => {
-              searchGoogle(data.data.google.generated_text, message);
-        });
+        text: message.content,
+      })
+      .then((data) => {
+        console.log(data);
+        searchGoogle(
+          data.data["perplexityai/llama-3.1-8b-instruct"].generated_text,
+          message,
+        );
+      });
   } else if (useopenAi) {
     //if ai then query the openai api with a prompt and get the responce
     chatgpt.chat.completions
@@ -83,7 +92,7 @@ async function convertToSearchTerms(message) {
       })
       .then((response) => response.json())
       .then((data) => {
-            searchGoogle( data.choices.message.content, message);
+        searchGoogle(data.choices.message.content, message);
       });
   } else {
     //remove periods and stuff
@@ -109,39 +118,38 @@ async function convertToSearchTerms(message) {
     //remove any undefined value(if the first word is a name then it will add undefined)
     search = search.filter((value) => value !== undefined);
     if ((search.length = 1)) {
-      let results = "non memable";
+      let results = "non memeable";
     } else {
       let results = search;
     }
-      searchGoogle(results, message);
+    searchGoogle(results, message);
   }
 }
-function searchGoogle(search, message){
-     //log the search its going to do
-      console.log("doing search:");
-        console.log(search);
-      //make sure there is a search
-      if (!search.includes("non memable")) {
-        //use google image api to get memes
-        fetch(
-          "https://www.googleapis.com/customsearch/v1?q=" +
-            search +
-            "&cx=f5fde0317a3754392&key=" +
-            process.env.googleapi +
-            "&searchType=image",
-        )
-          .then((response) => response.json()) // Parse JSON when response arrives
-          .then((data) => {
-            const results = data.items;
-            //for each meam send the meme
-            results.forEach(function (result, index) {
-              if (index < 3) {
-                message.channel.send(result.link);
-              }
-            });
-          });
-      }
-    
+function searchGoogle(search, message) {
+  //log the search its going to do
+  console.log("doing search:");
+  console.log(search);
+  //make sure there is a search
+  if (!search.includes("non memeable")) {
+    //use google image api to get memes
+    fetch(
+      "https://www.googleapis.com/customsearch/v1?q=" +
+        search +
+        "&cx=f5fde0317a3754392&key=" +
+        process.env.googleapi +
+        "&searchType=image",
+    )
+      .then((response) => response.json()) // Parse JSON when response arrives
+      .then((data) => {
+        const results = data.items;
+        //for each meam send the meme
+        results.forEach(function (result, index) {
+          if (index < 3) {
+            message.channel.send(result.link);
+          }
+        });
+      });
+  }
 }
 client.on("messageCreate", (message) => {
   // Check if the message author is not the bot itself
